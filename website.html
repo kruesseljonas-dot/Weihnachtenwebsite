@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎄 Weihnachtsspielesammlung</title>
+
+<style>
+:root{
+  --glass:rgba(255,255,255,.15);
+  --good:#2ecc71;
+  --bad:#e74c3c;
+  --accent:#f1c40f;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:system-ui, sans-serif;
+  color:white;
+  background-image:
+    linear-gradient(to bottom, rgba(0,0,0,.45), rgba(0,0,0,.75)),
+    url("https://images.unsplash.com/photo-1543589077-47d81606c1bf");
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+#snow{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:1;
+}
+
+.container{
+  max-width:600px;
+  margin:auto;
+  padding:20px;
+  position:relative;
+  z-index:2;
+}
+
+.card{
+  background:var(--glass);
+  backdrop-filter:blur(12px);
+  border-radius:22px;
+  padding:22px;
+  margin-top:20px;
+  animation:fade .35s ease;
+}
+
+@keyframes fade{
+  from{opacity:0;transform:translateY(15px)}
+  to{opacity:1;transform:none}
+}
+
+h1,h2,h3{text-align:center}
+
+button,input{
+  width:100%;
+  padding:15px;
+  margin-top:12px;
+  font-size:1.05rem;
+  border:none;
+  border-radius:16px;
+}
+
+button{
+  background:#ffffff22;
+  color:white;
+  font-weight:600;
+}
+
+button:active{transform:scale(.96)}
+
+.hidden{display:none}
+
+canvas.draw{
+  background:white;
+  border-radius:16px;
+  touch-action:none;
+}
+
+.scoreline{
+  margin:6px 0;
+  font-size:1rem;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="snow"></canvas>
+
+<div class="container">
+
+<h1>🎄 Weihnachtsspielesammlung</h1>
+
+<!-- ================= MODUS AUSWAHL ================= -->
+<div id="modeSelect" class="card">
+  <h2>Spielmodus wählen</h2>
+  <button onclick="selectMode('quiz')">🎄 Weihnachtsquiz</button>
+  <button onclick="selectMode('draw')">🎨 Montagsmaler</button>
+  <button onclick="selectMode('imposter')">🕵️ Imposter</button>
+</div>
+
+<!-- ================= SPIELER ANZAHL ================= -->
+<div id="playerSetup" class="card hidden">
+  <h2 id="setupTitle"></h2>
+  <input id="playerCount" type="number">
+  <button onclick="startSelectedGame()">Spiel starten</button>
+</div>
+
+<!-- ================= QUIZ MODUS ================= -->
+<div id="quizMode" class="hidden">
+  <div id="startQuiz" class="card">
+    <p>Spieleranzahl (2–8)</p>
+    <button onclick="startQuizGame()">Quiz starten</button>
+  </div>
+
+  <div id="gameQuiz" class="card hidden">
+    <div id="roundInfoQuiz"></div>
+    <h3 id="playerTurnQuiz"></h3>
+    <div id="timerQuiz"></div>
+    <h2 id="questionQuiz"></h2>
+    <button onclick="startDiscussionQuiz()">🗣️ Diskussionsrunde starten</button>
+    <div id="answersQuiz"></div>
+  </div>
+
+  <div id="resultQuiz" class="card hidden">
+    <h2 id="resultTextQuiz"></h2>
+    <div id="scoreboardRoundQuiz"></div>
+    <button onclick="nextTurnQuiz()">➡️ Nächster Spieler</button>
+  </div>
+
+  <div id="endQuiz" class="card hidden">
+    <h2>🏆 Endergebnis</h2>
+    <div id="scoreboardEndQuiz"></div>
+  </div>
+</div>
+
+
+<!-- ================= MONTAGSMALER ================= -->
+<div id="drawMode" class="hidden">
+  <!-- kommt vollständig in Teil 2 -->
+</div>
+
+<!-- ================= IMPOSTER ================= -->
+<div id="imposterMode" class="hidden">
+  <!-- kommt vollständig in Teil 3 -->
+</div>
+
+</div>
+
+<script>
+/* ================= ALLGEMEIN ================= */
+let currentMode="";
+let players=[], scores=[];
+
+/* ================= MODUS AUSWAHL ================= */
+function selectMode(mode){
+  currentMode=mode;
+  modeSelect.classList.add("hidden");
+  playerSetup.classList.remove("hidden");
+
+  if(mode==="quiz"){
+    setupTitle.innerText="🎄 Weihnachtsquiz – Spieleranzahl (2–8)";
+    playerCount.min=2; playerCount.max=8; playerCount.value=2;
+  }
+  if(mode==="draw"){
+    setupTitle.innerText="🎨 Montagsmaler – Spieleranzahl (4–25)";
+    playerCount.min=4; playerCount.max=25; playerCount.value=4;
+  }
+  if(mode==="imposter"){
+    setupTitle.innerText="🕵️ Imposter – Spieleranzahl (3–12)";
+    playerCount.min=3; playerCount.max=12; playerCount.value=3;
+  }
+}
+
+function startSelectedGame(){
+  const c=parseInt(playerCount.value);
+  players=[]; scores=[];
+  for(let i=0;i<c;i++){
+    players.push("Spieler "+(i+1));
+    scores.push(0);
+  }
+
+  playerSetup.classList.add("hidden");
+
+  if(currentMode==="quiz"){
+    quizMode.classList.remove("hidden");
+    startQuizGame(); // kommt in Teil 3
+  }
+  if(currentMode==="draw"){
+    drawMode.classList.remove("hidden");
+    startDrawGame(); // kommt in Teil 2
+  }
+  if(currentMode==="imposter"){
+    imposterMode.classList.remove("hidden");
+    startImposterGame(); // kommt in Teil 3
+  }
+}
+
+/* ================= SCHNEEFALL ================= */
+const canvas=document.getElementById("snow");
+const ctx=canvas.getContext("2d");
+let w,h,flakes=[];
+
+function resize(){
+  w=canvas.width=window.innerWidth;
+  h=canvas.height=window.innerHeight;
+}
+window.addEventListener("resize",resize);
+resize();
+
+for(let i=0;i<120;i++){
+  flakes.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*3+1,d:Math.random()+1});
+}
+
+function snow(){
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  flakes.forEach(f=>{
+    ctx.moveTo(f.x,f.y);
+    ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+  });
+  ctx.fill();
+  flakes.forEach(f=>{
+    f.y+=f.d;
+    if(f.y>h){f.y=0;f.x=Math.random()*w}
+  });
+  requestAnimationFrame(snow);
+}
+snow();
+</script>
+
+</body>
+</html>
+<script>
+/* ================= MONTAGSMALER ================= */
+let drawRound=0;
+let drawIndex=0;
+let phase="draw"; // draw | guess
+let drawTimer;
+let drawTimeLeft=0;
+let currentWord="";
+let drawings=[]; // {player, word, img, guess, correct}
+
+/* Wörter */
+const drawWords=[
+  "Stern","Krippe","Weihnachtsbaum","Schlitten","Schneeflocke",
+  "Eis","Kerze","Geschenk","Rentier","Nikolaus","Zuckerstange",
+  "Glocke","Engel","Mütze","Schal"
+];
+
+/* Start */
+function startDrawGame(){
+  drawRound=1;
+  drawIndex=0;
+  drawings=[];
+  showDrawDrawPhase();
+}
+
+/* ================= PHASE ZEICHNEN ================= */
+function showDrawDrawPhase(){
+  phase="draw";
+  currentWord=drawWords[Math.floor(Math.random()*drawWords.length)];
+
+  drawMode.innerHTML=`
+    <div class="card">
+      <h2>🎨 Runde ${drawRound} – ${players[drawIndex]}</h2>
+      <p style="text-align:center">Zeichne das Wort:</p>
+      <h3>${currentWord}</h3>
+      <div style="text-align:center" id="drawTimer"></div>
+      <canvas id="drawCanvas" class="draw" width="320" height="320"></canvas>
+      <button onclick="finishDrawing()">✔️ Fertig</button>
+    </div>
+  `;
+
+  setupCanvas();
+  startDrawTimer(25);
+}
+
+/* Canvas Zeichnen (Maus + Touch) */
+let dctx, drawing=false;
+
+function setupCanvas(){
+  const c=document.getElementById("drawCanvas");
+  dctx=c.getContext("2d");
+  dctx.lineWidth=4;
+  dctx.lineCap="round";
+  dctx.strokeStyle="black";
+
+  const pos=e=>{
+    if(e.touches) return {x:e.touches[0].clientX-c.offsetLeft,y:e.touches[0].clientY-c.offsetTop};
+    return {x:e.offsetX,y:e.offsetY};
+  };
+
+  c.onmousedown=e=>{drawing=true;dctx.beginPath();dctx.moveTo(pos(e).x,pos(e).y)};
+  c.onmousemove=e=>{if(drawing){dctx.lineTo(pos(e).x,pos(e).y);dctx.stroke()}};
+  c.onmouseup=()=>drawing=false;
+  c.onmouseleave=()=>drawing=false;
+
+  c.ontouchstart=e=>{drawing=true;dctx.beginPath();dctx.moveTo(pos(e).x,pos(e).y)};
+  c.ontouchmove=e=>{e.preventDefault();if(drawing){dctx.lineTo(pos(e).x,pos(e).y);dctx.stroke()}};
+  c.ontouchend=()=>drawing=false;
+}
+
+/* Timer Zeichnen */
+function startDrawTimer(sec){
+  drawTimeLeft=sec;
+  drawTimer.innerText="⏱️ "+drawTimeLeft+" Sekunden";
+  clearInterval(drawTimer);
+  drawTimer=setInterval(()=>{
+    drawTimeLeft--;
+    drawTimer.innerText="⏱️ "+drawTimeLeft+" Sekunden";
+    if(drawTimeLeft<=0){
+      clearInterval(drawTimer);
+      lockCanvas();
+    }
+  },1000);
+}
+
+function lockCanvas(){
+  const c=document.getElementById("drawCanvas");
+  if(c) c.style.pointerEvents="none";
+}
+
+/* Fertig */
+function finishDrawing(){
+  clearInterval(drawTimer);
+  lockCanvas();
+  saveDrawing();
+  showGuessPhase();
+}
+
+/* ================= PHASE RATEN ================= */
+function showGuessPhase(){
+  phase="guess";
+  const next=(drawIndex+1)%players.length;
+  const last=drawings[drawings.length-1];
+
+  drawMode.innerHTML=`
+    <div class="card">
+      <h2>🤔 ${players[next]} rät</h2>
+      <p style="text-align:center">Was zeigt diese Zeichnung?</p>
+      <div style="text-align:center">
+        <img src="${last.img}" style="max-width:100%;border-radius:16px">
+      </div>
+      <div id="guessTimer" style="text-align:center"></div>
+      <input id="guessInput" placeholder="Deine Antwort">
+      <button onclick="submitGuess()">Antwort abschicken</button>
+    </div>
+  `;
+
+  startGuessTimer(15);
+}
+
+/* Timer Raten */
+function startGuessTimer(sec){
+  let t=sec;
+  guessTimer.innerText="⏱️ "+t+" Sekunden";
+  const int=setInterval(()=>{
+    t--;
+    guessTimer.innerText="⏱️ "+t+" Sekunden";
+    if(t<=0){
+      clearInterval(int);
+      submitGuess();
+    }
+  },1000);
+}
+
+/* Speichern */
+function saveDrawing(){
+  const c=document.getElementById("drawCanvas");
+  drawings.push({
+    player:players[drawIndex],
+    word:currentWord,
+    img:c.toDataURL(),
+    guess:"",
+    correct:false
+  });
+}
+
+function submitGuess(){
+  const entry=drawings[drawings.length-1];
+  const guess=(guessInput?.value||"").trim();
+  entry.guess=guess;
+  entry.correct=guess.toLowerCase()===entry.word.toLowerCase();
+
+  const guesser=(drawIndex+1)%players.length;
+  scores[guesser]+=entry.correct?5:2.5;
+
+  nextDrawTurn();
+}
+
+/* ================= RUNDEN LOGIK ================= */
+function nextDrawTurn(){
+  drawIndex++;
+  if(drawIndex>=players.length){
+    drawIndex=0;
+    drawRound++;
+    if(drawRound>3) return endDrawGame();
+    showRoundSummary();
+  }else{
+    showDrawDrawPhase();
+  }
+}
+
+/* Übersicht nach Runde */
+function showRoundSummary(){
+  let out=`<div class="card"><h2>📋 Runde ${drawRound-1} Übersicht</h2>`;
+  drawings.slice(-players.length).forEach(d=>{
+    out+=`
+      <div class="scoreline">
+        <b>${d.player}</b> – Wort: ${d.word}<br>
+        Antwort: ${d.guess||"—"} ${d.correct?"✔️":"❌"}
+      </div>
+      <img src="${d.img}" style="max-width:100%;border-radius:16px;margin-bottom:10px">
+    `;
+  });
+  out+=`<button onclick="showDrawDrawPhase()">➡️ Weiter</button></div>`;
+  drawMode.innerHTML=out;
+}
+
+/* Ende */
+function endDrawGame(){
+  let out=`<div class="card"><h2>🏆 Endergebnis</h2>`;
+  players.forEach((p,i)=>{
+    out+=`<div class="scoreline">${p}: <b>${scores[i]}</b> Punkte</div>`;
+  });
+  out+=`</div>`;
+  drawMode.innerHTML=out;
+}
+</script>
+<script>
+/* ================= IMPOSTER ================= */
+let imposterIndex=0;
+let imposterWord="";
+let normalWord="";
+let imposterPlayer=0;
+let imposterStep=0;
+let votes=[];
+
+const imposterWords=[
+  ["Weihnachtsbaum","Auto"],
+  ["Schneemann","Banane"],
+  ["Nikolaus","Computer"],
+  ["Geschenk","Toaster"],
+  ["Rentier","Staubsauger"]
+];
+
+function startImposterGame(){
+  votes=[];
+  imposterStep=0;
+  imposterPlayer=Math.floor(Math.random()*players.length);
+  const pair=imposterWords[Math.floor(Math.random()*imposterWords.length)];
+  normalWord=pair[0];
+  imposterWord=pair[1];
+  showImposterWord();
+}
+
+function showImposterWord(){
+  imposterMode.innerHTML=`
+    <div class="card">
+      <h2>🕵️ ${players[imposterStep]}</h2>
+      <button onclick="revealImposterWord()">👁️ Wort anzeigen</button>
+    </div>
+  `;
+}
+
+function revealImposterWord(){
+  const word=imposterStep===imposterPlayer?imposterWord:normalWord;
+  imposterMode.innerHTML=`
+    <div class="card">
+      <h2>${players[imposterStep]}</h2>
+      <h3>${word}</h3>
+      <button onclick="nextImposterPlayer()">➡️ Nächster Spieler</button>
+    </div>
+  `;
+}
+
+function nextImposterPlayer(){
+  imposterStep++;
+  if(imposterStep>=players.length){
+    startVoting();
+  }else{
+    showImposterWord();
+  }
+}
+
+/* ================= VOTING ================= */
+function startVoting(){
+  let out=`<div class="card"><h2>🗳️ Wer ist der Imposter?</h2>`;
+  players.forEach((p,i)=>{
+    out+=`<button onclick="castVote(${i})">${p}</button>`;
+  });
+  out+=`</div>`;
+  imposterMode.innerHTML=out;
+}
+
+function castVote(i){
+  votes.push(i);
+  if(votes.length>=players.length){
+    showVoteResult();
+  }
+}
+
+function showVoteResult(){
+  const counts={};
+  votes.forEach(v=>counts[v]=(counts[v]||0)+1);
+  let max=0,chosen=-1;
+  for(let k in counts){
+    if(counts[k]>max){max=counts[k];chosen=k;}
+  }
+
+  let out=`<div class="card"><h2>📊 Ergebnis</h2>`;
+  out+=`<p>Imposter war: <b>${players[imposterPlayer]}</b></p>`;
+  out+=chosen==imposterPlayer
+    ?"<h3>✅ Imposter gefunden!</h3>"
+    :"<h3>❌ Imposter entkommen!</h3>";
+  out+=`</div>`;
+  imposterMode.innerHTML=out;
+}
+</script>
+<script>
+/* ================= QUIZ ================= */
+let quizRound=0;
+let quizPlayer=0;
+let quizTime=10;
+let quizTimer;
+
+const quizQuestions=[
+{q:"In welchem Jahrhundert wurde der Weihnachtsbaum populär?",a:["16.","18.","19."],c:1},
+{q:"Welches Land feiert Weihnachten am 7. Januar?",a:["Russland","Spanien","Italien"],c:0},
+{q:"Was symbolisieren Kerzen ursprünglich?",a:["Dekoration","Licht gegen Dunkelheit","Wohlstand"],c:1},
+{q:"Welche Farbe hatte der Weihnachtsmann früher oft?",a:["Grün","Rot","Braun"],c:0}
+];
+
+function startQuizGame(){
+  quizRound=0;
+  quizPlayer=0;
+  showQuizQuestion();
+}
+
+function showQuizQuestion(){
+  quizTime=10;
+  const q=quizQuestions[quizRound];
+  quizMode.innerHTML=`
+    <div class="card">
+      <h2>${players[quizPlayer]} ist dran</h2>
+      <div id="quizTimer"></div>
+      <h3>${q.q}</h3>
+      ${q.a.map((a,i)=>`<button onclick="answerQuiz(${i})">${a}</button>`).join("")}
+    </div>
+  `;
+  startQuizTimer();
+}
+
+function startQuizTimer(){
+  quizTimer=setInterval(()=>{
+    quizTime--;
+    quizTimer.innerText="⏱️ "+quizTime;
+    if(quizTime<=0){
+      clearInterval(quizTimer);
+      nextQuizTurn();
+    }
+  },1000);
+}
+
+function answerQuiz(i){
+  clearInterval(quizTimer);
+  const q=quizQuestions[quizRound];
+  if(i===q.c) scores[quizPlayer]+=10;
+  nextQuizTurn();
+}
+
+function nextQuizTurn(){
+  quizPlayer++;
+  if(quizPlayer>=players.length){
+    quizPlayer=0;
+    quizRound++;
+    if(quizRound>=quizQuestions.length){
+      endQuizGame();
+      return;
+    }
+  }
+  showQuizQuestion();
+}
+
+function endQuizGame(){
+  let out=`<div class="card"><h2>🏆 Quiz Ende</h2>`;
+  players.forEach((p,i)=>{
+    out+=`<div class="scoreline">${p}: ${scores[i]} Punkte</div>`;
+  });
+  out+=`</div>`;
+  quizMode.innerHTML=out;
+}
+</script>
